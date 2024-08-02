@@ -13,7 +13,7 @@ namespace AX2LIB
     /// </summary>
     public class NET_DLL_Writer
     {
-        private const string CoderName = "GeorgGrebenyuk";
+        private NVP_XML _doc_descr;
 
         /// <summary>
         /// Внутренний метод для генерации процедуры нода
@@ -22,16 +22,16 @@ namespace AX2LIB
         /// <returns></returns>
         private string Get_NodeResult_Execute(string[] inner_commands)
         {
-            string start_instructions = 
-                $"\t\t[NullableContext(1)]\n" +
-                $"\t\tpublic NodeResult Execute(INVPData context, List<NodeResult> inputs)\n" +
-                "{";
+            string start_instructions =
+                $"\t\t\t[NullableContext(1)]\n" +
+                $"\t\t\tpublic NodeResult Execute(INVPData context, List<NodeResult> inputs)\n" +
+                "\t\t\t{" + line_sep;
             foreach (string command in inner_commands)
             {
-                start_instructions += $"\t\t\t{command}\n";
+                start_instructions += $"\t\t\t\t{command}\n";
             }
 
-            start_instructions += "\t\t}\n";
+            start_instructions += "\t\t\t}\n";
             return start_instructions;
         }
 
@@ -43,21 +43,21 @@ namespace AX2LIB
         private string tab = $"\t";
         private string line_sep = $"\r\n";
         private string LibName => proptotype.LIBRARY_INFO.Name;
-        private string RootNsName => "Dyn" + LibName;
+        private string RootNsName => "NVP_" + LibName;
         public NET_DLL_Writer(NET_DLL_PROTOTYPE proptotype, string save_path)
         {
             this.proptotype = proptotype;
             if (!Directory.Exists(save_path)) throw new DirectoryNotFoundException("Can not save to that Directory");
             this.save_path = save_path;
+
         }
         public void Create()
         {
             save_path = Path.Combine(save_path, proptotype.LIBRARY_INFO.Name);
             //this.LibName = "Dyn" + proptotype.LIBRARY_INFO.Name;
             //first, let's create a new folder in save_path named "root namepsace of Library"
-            XDocument doc_nodeitem = new XDocument();
-            XElement doc_nodeitem_Nodes = new XElement("ArrayOfNodeInfo");
-            string nodeitem_save_path = Path.Combine(save_path, proptotype.LIBRARY_INFO.Name + ".nodeitem");
+            _doc_descr = new NVP_XML(RootNsName + ".dll", "GeorgGrebenyuk");
+            string nodeitem_save_path = Path.Combine(save_path, RootNsName + ".nodeitem");
 
             
             StringBuilder not_impl = new StringBuilder();
@@ -105,28 +105,40 @@ namespace AX2LIB
                 cs_content.AppendLine(GetComment(class_wrapper.Description, true));
                 cs_content.AppendLine($"{tab}public abstract class {class_name} \r\n" + tab + "{");
                 //add original interface
-                cs_content.AppendLine($"{tab}{tab}public {LibName}.{class_wrapper.Name} _i;");
+                cs_content.AppendLine($"{tab}{tab}public {LibName}.{class_wrapper.Name} _i;" + line_sep);
                 //add default internal constructor
+                //cs_content.AppendLine(
+                //    $"{tab}{tab}internal {class_name}(object {class_name}_object) " + line_sep +
+                //    $"{tab}{tab}" + "{" + line_sep +
+                //    $"{tab}{tab}{tab}" + $"this._i = {class_name}_object as {LibName}.{class_wrapper.Name};" + line_sep +
+                //    $"{tab}{tab}{tab}" + $"if (this._i == null) throw new System.Exception(\"Invalid casting to {class_wrapper.Name}\");" + line_sep +
+                //    $"{tab}{tab}" + "}");
+
+                //add default dynamic constructor
+                string dyn_constructor = Get_NodeResult_Execute(new string[]
+                    {
+                        "dynamic _input0 = inputs[0].Value;",
+                        $"this._i = _input0 as {LibName}.{class_wrapper.Name};",
+                        "if (this._i == null) throw new System.Exception(\"Invalid casting\");",
+                        "return this;"
+                    });
                 cs_content.AppendLine(
-                    $"{tab}{tab}internal {class_name}(object {class_name}_object) " + line_sep +
-                    $"{tab}{tab}" + "{" + line_sep +
-                    $"{tab}{tab}{tab}" + $"this._i = {class_name}_object as {LibName}.{class_wrapper.Name};" + line_sep +
-                    $"{tab}{tab}{tab}" + $"if (this._i == null) throw new System.Exception(\"Invalid casting to {class_wrapper.Name}\");" + line_sep +
-                    $"{tab}{tab}" + "}");
+                $"{tab}{tab}[NodeInput(\"dynamic\", typeof(dynamic))]" + line_sep +
+                $"{tab}{tab}public class {class_name}_Constructor : {class_name}, INode " + line_sep +
+                $"{tab}{tab}" + "{" + line_sep + dyn_constructor  +
+                $"{tab}{tab}" + "}");
+
+                _doc_descr.Add(
+                    RootNsName + "." + class_name + "." + class_name + "_Constructor",
+                    RootNsName + "." + class_name,
+                    class_name + "_Constructor",
+                    true,
+                    NVP_XML.NodeViewType.Default);
+
                 if (inherits_info.Contains(class_wrapper.Name))
                 {
                     //add public dynamic constructor 
-                    string dyn_constructor = Get_NodeResult_Execute(new string[]
-                    {
-                        $"this._i = {class_name}_object_to_cast._i as {LibName}.{class_wrapper.Name};",
-                        "if (this._i == null) throw new System.Exception(\"Invalid casting\");",
-                        "return this._i;"
-                    });
-                    cs_content.AppendLine(
-                    $"{tab}{tab}[NodeInput(\"dynamic\", typeof(dynamic))]" + line_sep +
-                    $"{tab}{tab}public class {class_name}_C : {class_name}, INode " + line_sep +
-                    $"{tab}{tab}" + "{" + line_sep + dyn_constructor + line_sep +
-                    $"{tab}{tab}" + "}");
+                    
                 }
                 //add other class content
                 foreach (COMPONENT_PROTOTYPE class_element in class_wrapper.Members)
@@ -141,7 +153,7 @@ namespace AX2LIB
                         List<string> arguments = new List<string>();
                         List<string> arguments_names = new List<string>();
                         List<string> NVP_args_attributes = new List<string>();
-                        NVP_args_attributes.Add("[NodeInput(\"AcadDocument\", typeof(dynamic))]");
+                        NVP_args_attributes.Add($"[NodeInput(\"{class_name}\", typeof(dynamic))]");
                         bool is_opt = false;
                         for (int i = 0; i < class_element.ArgumentsNames.Length; i++)
                         {
@@ -179,35 +191,38 @@ namespace AX2LIB
                         arguments_string = string.Join(",", arguments);
                         arguments_names_string = string.Join(",", arguments_names);
 
-                        string content_type = "NodeViewType.Default";
-                        string element_instructions = "";
+                        NVP_XML.NodeViewType content_type = NVP_XML.NodeViewType.Default;
+                        //string content_type = "NodeViewType.Default";
+                        string element_instructions = "dynamic _input0 = inputs[0].Value;" + line_sep + "\t\t\t\t";
                         string element_name = class_element.Name;
 
                         //|| 
                         if (class_element.TYPE == NET_DLL_PROTOTYPE.NET_TYPE.TYPE_METHOD_VOID)
                         {
                             //content_type = "NodeViewType.Modifier";
-                            element_instructions = $"inputs[0].Value._i.{class_element.Name}({arguments_names_string});";
+                            element_instructions += $"_input0._i.{class_element.Name}({arguments_names_string});";
                         }
                         else if (class_element.TYPE == NET_DLL_PROTOTYPE.NET_TYPE.TYPE_METHOD_SET)
                         {
                             element_name = "Set_" + element_name;
-                            content_type = "NodeViewType.Modifier";
-                            element_instructions = $"inputs[0].Value._i.{class_element.Name} = {arguments_names_string};";
+                            content_type = NVP_XML.NodeViewType.Modifier;
+                            //content_type = "NodeViewType.Modifier";
+                            element_instructions += $"_input0._i.{class_element.Name} = {arguments_names_string};";
                         }
                         else if (class_element.TYPE == NET_DLL_PROTOTYPE.NET_TYPE.TYPE_METHOD_GET)
                         {
                             //element_name = element_name;
-                            content_type = "NodeViewType.Data";
+                            content_type = NVP_XML.NodeViewType.Data;
+                            //content_type = "NodeViewType.Data";
                             string arguments_names_string2 = $"({arguments_names_string})";
                             if (arguments_names_string.Length < 2) arguments_names_string2 = "";
-                            element_instructions = $"return inputs[0].Value._i.{class_element.Name}{arguments_names_string2};";
+                            element_instructions += $"return _input0._i.{class_element.Name}{arguments_names_string2};";
                         }
                         else if (class_element.TYPE == NET_DLL_PROTOTYPE.NET_TYPE.TYPE_FIELD)
                         {
                             //content_type = "public void";
                             element_name = "Put_" + element_name;
-                            element_instructions = $"inputs[0].Value._i.{class_element.Name} = {arguments_names_string};";
+                            element_instructions += $"_input0._i.{class_element.Name} = {arguments_names_string};";
                         }
                         else if (class_element.TYPE == NET_DLL_PROTOTYPE.NET_TYPE.TYPE_METHOD_PRIVATE_VOID)
                         {
@@ -223,29 +238,35 @@ namespace AX2LIB
                             //element_instructions = element_instructions.Replace(")", "]").Replace(".Item(", "[");
                         }
 
+                        //add get-propperty as =>
+                        string opt_comment = "";
+                        if (is_opt) opt_comment = " //optional_arguments" + line_sep;
+
+                        cs_content.AppendLine(opt_comment);
+
                         cs_content.AppendLine(GetComment(class_element.Description, false));
                         foreach (string ang_Attribute in NVP_args_attributes)
                         {
-                            cs_content.AppendLine($"{tab}{tab}{ang_Attribute}" + line_sep);
+                            cs_content.AppendLine($"{tab}{tab}{ang_Attribute}");
                         }
 
-                        //add get-propperty as =>
-                        string opt_comment = "";
-                        if (is_opt) opt_comment = " //optional_argument" + line_sep;
-
-                        cs_content.AppendLine(opt_comment);
+                        
                         string exec = Get_NodeResult_Execute(new string[] { element_instructions });
 
                         cs_content.AppendLine(
-                            $"{tab}{tab}public class {element_name} : AcadDocument, INode" + line_sep +
+                            $"{tab}{tab}public class {element_name} : {class_name}, INode" + line_sep +
                             $"{tab}{tab}" + "{" + line_sep +
-                            $"{tab}{tab}{tab}" + $"{exec}" + line_sep +
+                            $"" + $"{exec}" +
                             $"{tab}{tab}" + "}");
 
+                        _doc_descr.Add(
+                            RootNsName + "." + class_name + "." + element_name,
+                            RootNsName + "." + class_name,
+                            element_name,
+                            true,
+                            content_type);
                     }
-
                 }
-
 
                 //close class
                 cs_content.AppendLine($"{tab}" + "}");
@@ -265,8 +286,7 @@ namespace AX2LIB
 
             File.WriteAllText(not_impl_save_path, not_impl.ToString(), Encoding.UTF8);
 
-            doc_nodeitem.Add(doc_nodeitem_Nodes);
-            doc_nodeitem.Save(nodeitem_save_path);
+            _doc_descr.Save(nodeitem_save_path);
         }
         private string GetComment(string helpstring, bool is_class)
         {
