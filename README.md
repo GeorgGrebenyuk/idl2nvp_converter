@@ -1,4 +1,4 @@
-# idl2dynamo_converter
+# idl2nvp_converter
 Translator ActiveX library (from IDL file) to C# NET DLL for NVP (https://nvp-studio.ru/) as node-package library. Next there is a summary how use it:
 
 ## Summary about using
