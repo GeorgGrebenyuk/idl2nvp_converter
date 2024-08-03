@@ -35,7 +35,7 @@ namespace AX2LIB
                 {
                     IDL_reader reader = new IDL_reader(idl_path);
                     reader.Start();
-                    NET_DLL_Writer writer = new NET_DLL_Writer(config.projectName, reader.NET_prototype, config.savePath);
+                    NET_DLL_Writer writer = new NET_DLL_Writer(true, config.projectName, reader.NET_prototype, config.savePath);
                     writer.Create();
                 }
                 CommonData._doc.Save();

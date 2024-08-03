@@ -54,6 +54,7 @@ namespace AX2LIB
                 $"{line_sep}{tab}{tab}ViewType = \"{info.ViewType}\")]";
         }
 
+        private bool _include_NVP_ManifestAttrs;
         private string _projectName = "";
         private NET_DLL_PROTOTYPE proptotype;
         private string save_path;
@@ -61,8 +62,9 @@ namespace AX2LIB
         private string line_sep = $"\r\n";
         private string LibName => proptotype.LIBRARY_INFO.Name;
         private string RootNsName => LibName;
-        public NET_DLL_Writer(string projectName, NET_DLL_PROTOTYPE proptotype, string save_path)
+        public NET_DLL_Writer(bool include_NVP_ManifestAttrs, string projectName, NET_DLL_PROTOTYPE proptotype, string save_path)
         {
+            _include_NVP_ManifestAttrs = include_NVP_ManifestAttrs;
             _projectName = projectName;
             this.proptotype = proptotype;
             if (!Directory.Exists(save_path)) throw new DirectoryNotFoundException("Can not save to that Directory");
@@ -123,6 +125,7 @@ namespace AX2LIB
                     true,
                     NVP_XML.NodeViewType.Modifier);
                 string nvp_manifest_1 = Get_ClassAttributes_NVP_Manifest(doc_info1);
+                if (!_include_NVP_ManifestAttrs) nvp_manifest_1 = "";
 
                 string dyn_constructor = Get_NodeResult_Execute(new string[]
                 {
@@ -147,6 +150,7 @@ namespace AX2LIB
                     true,
                     NVP_XML.NodeViewType.Modifier);
                 string nvp_manifest_2 = Get_ClassAttributes_NVP_Manifest(doc_info2);
+                if (!_include_NVP_ManifestAttrs) nvp_manifest_2 = "";
 
                 string dyn_constructor2 = Get_NodeResult_Execute(new string[]
                 {
@@ -306,6 +310,7 @@ namespace AX2LIB
                             true,
                             content_type);
                         string nvp_manifest_item = Get_ClassAttributes_NVP_Manifest(doc_info_item);
+                        if (!_include_NVP_ManifestAttrs) nvp_manifest_item = "";
                         cs_content.AppendLine(nvp_manifest_item);
 
                         
