@@ -22,30 +22,48 @@ namespace AX2LIB
         {
             string start_instructions =
                 //$"\t\t\t[NullableContext(1)]\n" +
-                $"\t\t\tpublic NodeResult Execute(INVPData context, List<NodeResult> inputs)\n" +
-                "\t\t\t{" + line_sep;
+                $"\t\tpublic NodeResult Execute(INVPData context, List<NodeResult> inputs)\n" +
+                "\t\t{" + line_sep;
             foreach (string command in inner_commands)
             {
-                start_instructions += $"\t\t\t\t{command}\n";
+                start_instructions += $"\t\t\t{command}\n";
             }
 
             //start_instructions += $"\t\t\t\treturn new \n";
 
-            start_instructions += "\t\t\t}\n";
+            start_instructions += "\t\t}\n";
             return start_instructions;
         }
 
-        private NET_DLL_PROTOTYPE proptotype;
         /// <summary>
-        /// 
+        /// Вспомогательный метод для генерации набора атрибутов класса NVP_Manifest (пользовательская реализация атрибутов для генерации файла манифеста библиотеки нодов nodeitem)
         /// </summary>
+        /// <returns></returns>
+        private string Get_ClassAttributes_NVP_Manifest(NodeInfo info)
+        {
+            return
+                $"{line_sep}{tab}[NVP_Manifest(" +
+                $"{line_sep}{tab}{tab}Id = \"{info.Id}\", " +
+                $"{line_sep}{tab}{tab}PathAssembly = \"{info.PathAssembly}\", " +
+                $"{line_sep}{tab}{tab}PathExecuteClass = \"{info.PathExecuteClass}\", " +
+                $"{line_sep}{tab}{tab}CoderName = \"{info.CoderName}\", " +
+                $"{line_sep}{tab}{tab}Folder = \"{info.Folder}\", " +
+                $"{line_sep}{tab}{tab}NodeName = \"{info.NodeName}\", " +
+                $"{line_sep}{tab}{tab}NodeType = \"{info.NodeType}\", " +
+                $"{line_sep}{tab}{tab}CADType = \"{info.CADType}\", " +
+                $"{line_sep}{tab}{tab}ViewType = \"{info.ViewType}\")]";
+        }
+
+        private string _projectName = "";
+        private NET_DLL_PROTOTYPE proptotype;
         private string save_path;
         private string tab = $"\t";
         private string line_sep = $"\r\n";
         private string LibName => proptotype.LIBRARY_INFO.Name;
-        private string RootNsName => "NVP_" + LibName + "_COM";
-        public NET_DLL_Writer(NET_DLL_PROTOTYPE proptotype, string save_path)
+        private string RootNsName => LibName;
+        public NET_DLL_Writer(string projectName, NET_DLL_PROTOTYPE proptotype, string save_path)
         {
+            _projectName = projectName;
             this.proptotype = proptotype;
             if (!Directory.Exists(save_path)) throw new DirectoryNotFoundException("Can not save to that Directory");
             this.save_path = save_path;
@@ -69,23 +87,15 @@ namespace AX2LIB
                 Directory.CreateDirectory(save_path);
             }
 
-            // List of interfaces name which are inherited by other interfaces (in future, create public dynamic constructor in it classes)
-            List<string> inherits_info = new List<string>();
-            foreach (CLASS_PROTOTYPE class_wrapper in proptotype.CLASSES)
-            {
-                inherits_info.Concat(class_wrapper.Inherits);
-            }
-            inherits_info = inherits_info.Distinct().ToList();
-
             //List of all enum
             List<string> enums = new List<string>();
             foreach (CLASS_PROTOTYPE class_wrapper in proptotype.Enumerations)
             {
                 string enum_name = class_wrapper.Name.TrimStart();
                 if (enum_name.Length > 3) enums.Add(enum_name);
-
             }
             enums = enums.Distinct().ToList();
+            //TODO: create for all enum nodes
 
             foreach (CLASS_PROTOTYPE class_wrapper in proptotype.CLASSES)
             {
@@ -95,25 +105,25 @@ namespace AX2LIB
 
                 //add NVP namespace
                 cs_content.AppendLine("using NVP.API.Nodes;" + line_sep);
-                /*block of using nsmespaces*/
-
-                //add namespace 
-
-                cs_content.AppendLine($"namespace {RootNsName} {line_sep}" + "{");
-                //add class
+                //add NVP_Manifest_Creator namespace (for attributes to create manifest)
+                cs_content.AppendLine("using NVP_Manifest_Creator;");
+                //add namespace (for that IDL file and for class) and comment for it 
                 cs_content.AppendLine(GetComment(class_wrapper.Description, true));
-                cs_content.AppendLine($"{tab}public abstract class {class_name} {line_sep}" + tab + "{");
-                //add original interface
-                cs_content.AppendLine($"{tab}{tab}public {LibName}.{class_wrapper.Name} _i;" + line_sep);
-                //add default internal constructor
-                //cs_content.AppendLine(
-                //    $"{tab}{tab}internal {class_name}(object {class_name}_object) " + line_sep +
-                //    $"{tab}{tab}" + "{" + line_sep +
-                //    $"{tab}{tab}{tab}" + $"this._i = {class_name}_object as {LibName}.{class_wrapper.Name};" + line_sep +
-                //    $"{tab}{tab}{tab}" + $"if (this._i == null) throw new System.Exception(\"Invalid casting to {class_wrapper.Name}\");" + line_sep +
-                //    $"{tab}{tab}" + "}");
+                cs_content.AppendLine($"namespace {RootNsName}.{class_name} {line_sep}" + "{");
+                //adding class content
+
+                string original_interface = $"{tab}{tab}public {LibName}.{class_wrapper.Name} _i;" + line_sep;
+                string NVP_Folder = _projectName + "." + RootNsName + "." + class_name;
 
                 //add default dynamic constructor (from COM object)
+                var doc_info1 = CommonData._doc.Add(
+                    RootNsName + "." + class_name + "." + class_name + "_Constructor",
+                    NVP_Folder,
+                    "_" + class_name + "_Constructor",
+                    true,
+                    NVP_XML.NodeViewType.Modifier);
+                string nvp_manifest_1 = Get_ClassAttributes_NVP_Manifest(doc_info1);
+
                 string dyn_constructor = Get_NodeResult_Execute(new string[]
                 {
                     "dynamic _input0 = inputs[0].Value;",
@@ -121,20 +131,23 @@ namespace AX2LIB
                     "if (this._i == null) throw new Exception(\"Invalid casting\");",
                     "return new NodeResult(this);"
                 });
-                cs_content.AppendLine(
-                $"{tab}{tab}[NodeInput(\"dynamic\", typeof(object))]" + line_sep +
-                $"{tab}{tab}public class {class_name}_Constructor : {class_name}, INode " + line_sep +
-                $"{tab}{tab}" + "{" + line_sep + dyn_constructor  +
-                $"{tab}{tab}" + "}");
+                cs_content.AppendLine(nvp_manifest_1 + line_sep + 
+                    $"{tab}[NodeInput(\"dynamic\", typeof(object))]" + line_sep +
+                    $"{tab}public class {class_name}_Constructor : INode " + line_sep +
+                    $"{tab}" + "{" + line_sep + original_interface + dyn_constructor  +
+                    $"{tab}" + "}");
 
-                CommonData._doc.Add(
-                    RootNsName + "." + class_name + "." + class_name + "_Constructor",
-                    RootNsName + "." + class_name,
-                    class_name + "_Constructor",
+
+
+                //add default cast-constructor (from _i field)
+                var doc_info2 = CommonData._doc.Add(
+                    RootNsName + "." + class_name + "." + class_name + "_ConstructorCast",
+                    NVP_Folder,
+                    "_" + class_name + "_ConstructorCast",
                     true,
-                    NVP_XML.NodeViewType.Default);
+                    NVP_XML.NodeViewType.Modifier);
+                string nvp_manifest_2 = Get_ClassAttributes_NVP_Manifest(doc_info2);
 
-                //add cast-constructor
                 string dyn_constructor2 = Get_NodeResult_Execute(new string[]
                 {
                     "dynamic _input0 = inputs[0].Value;",
@@ -142,24 +155,15 @@ namespace AX2LIB
                     "if (this._i == null) throw new Exception(\"Invalid casting\");",
                     "return new NodeResult(this);"
                 });
-                cs_content.AppendLine(
-                $"{tab}{tab}[NodeInput(\"dynamic\", typeof(object))]" + line_sep +
-                $"{tab}{tab}public class {class_name}_ConstructorCast : {class_name}, INode " + line_sep +
-                $"{tab}{tab}" + "{" + line_sep + dyn_constructor2 +
-                $"{tab}{tab}" + "}");
+                cs_content.AppendLine(nvp_manifest_2 + line_sep +
+                    $"{tab}[NodeInput(\"dynamic\", typeof(object))]" + line_sep +
+                    $"{tab}public class {class_name}_ConstructorCast : INode " + line_sep +
+                    $"{tab}" + "{" + line_sep + original_interface + dyn_constructor2 +
+                    $"{tab}" + "}");
 
-                CommonData._doc.Add(
-                    RootNsName + "." + class_name + "." + class_name + "_ConstructorCast",
-                    RootNsName + "." + class_name,
-                    class_name + "_ConstructorCast",
-                    true,
-                    NVP_XML.NodeViewType.Default);
+                
 
-                if (inherits_info.Contains(class_wrapper.Name))
-                {
-                    //add public dynamic constructor 
-                    
-                }
+
                 //add other class content
                 foreach (COMPONENT_PROTOTYPE class_element in class_wrapper.Members)
                 {
@@ -171,6 +175,10 @@ namespace AX2LIB
                         string arguments_string = "";
                         string arguments_names_string = "";
                         List<string> arguments = new List<string>();
+                        //Резерв для типов enum для приведения
+                        List<string> arguments_types = new List<string>();
+                        List<bool> arguments_is_enum = new List<bool>();
+
                         List<string> arguments_names = new List<string>();
                         List<string> NVP_args_attributes = new List<string>();
                         NVP_args_attributes.Add($"[NodeInput(\"{class_name}\", typeof(object))]");
@@ -182,11 +190,13 @@ namespace AX2LIB
                             
                             string arg_type_source = class_element.ArgumentTypes_Source[i];
                             string arg_type = null;
+                            bool is_enum = false;
                             foreach (string enum_def in enums)
                             {
                                 if (arg_type_source.Contains(enum_def)) 
                                 {
                                     arg_type = $"{LibName}.{enum_def}";
+                                    is_enum = true;
                                     break;
                                 }
                             }
@@ -204,10 +214,14 @@ namespace AX2LIB
                             else if (arg_type == "string") arg_type_Type = typeof(string);
                             if (arg_type == "dynamic") arg_type_Type = typeof(object);
 
-                            NVP_args_attributes.Add($"[NodeInput(\"{arg_name}\", typeof({arg_type_Type}))]");
+                            string arg_name2 = arg_name;
+                            if (is_enum) arg_name2 = arg_type;
+                            NVP_args_attributes.Add($"[NodeInput(\"{arg_name2}\", typeof({arg_type_Type}))]");
 
                             arguments.Add(out_info + arg_type + " " + arg_name);
                             arguments_names.Add(out_info + arg_name);
+                            arguments_types.Add(arg_type);
+                            arguments_is_enum.Add(is_enum);
                         }
                         arguments_string = string.Join(",", arguments);
                         arguments_names_string = string.Join(",", arguments_names);
@@ -215,20 +229,26 @@ namespace AX2LIB
                         List<string> NVP_arguments_raw = new List<string>();
                         for (int arg_i = 0; arg_i  < arguments.Count; arg_i++)
                         {
-                            NVP_arguments_raw.Add($"inputs[{arg_i + 1}]");
+                            string pre_cast = "";
+                            if (arguments_is_enum[arg_i] is true) pre_cast =arguments_types[arg_i];
+
+                            if (pre_cast != "") NVP_arguments_raw.Add($"(({pre_cast})inputs[{arg_i + 1}].Value)");
+                            else NVP_arguments_raw.Add($"inputs[{arg_i + 1}].Value");
+
                         }
                         string NVP_arguments = string.Join (",", NVP_arguments_raw);
 
                         NVP_XML.NodeViewType content_type = NVP_XML.NodeViewType.Default;
                         //string content_type = "NodeViewType.Default";
-                        string element_instructions = "dynamic _input0 = inputs[0].Value;" + line_sep + "\t\t\t\t";
+                        string element_instructions = "dynamic _input0 = inputs[0].Value;" + line_sep + "\t\t\t";
                         string element_name = class_element.Name;
 
                         //|| 
                         if (class_element.TYPE == NET_DLL_PROTOTYPE.NET_TYPE.TYPE_METHOD_VOID)
                         {
+                            content_type = NVP_XML.NodeViewType.Modifier;
                             //content_type = "NodeViewType.Modifier";
-                            element_instructions += $"_input0._i.{class_element.Name}({NVP_arguments});" + line_sep + "\t\t\t\t";
+                            element_instructions += $"_input0._i.{class_element.Name}({NVP_arguments});" + line_sep + "\t\t\t";
                             element_instructions += "return null;";
                         }
                         else if (class_element.TYPE == NET_DLL_PROTOTYPE.NET_TYPE.TYPE_METHOD_SET || class_element.TYPE == NET_DLL_PROTOTYPE.NET_TYPE.TYPE_FIELD)
@@ -244,7 +264,7 @@ namespace AX2LIB
                             {
                                 element_instructions += $"_input0._i.{class_element.Name}[inputs[1]] = inputs[2];";
                             }
-                            element_instructions += line_sep + "\t\t\t\t";
+                            element_instructions += line_sep + "\t\t\t";
 
                             element_instructions += "return null;";
                         }
@@ -260,6 +280,7 @@ namespace AX2LIB
                         else if (class_element.TYPE == NET_DLL_PROTOTYPE.NET_TYPE.TYPE_METHOD_PRIVATE_VOID)
                         {
                             //content_type = "private void";
+                            content_type = NVP_XML.NodeViewType.Modifier;
                             element_name = "HiddenField_" + element_name;
                             element_instructions += "return null;";
                             //element_instructions = $"this._i.{class_element.Name}({arguments_names_string});";
@@ -278,32 +299,39 @@ namespace AX2LIB
 
                         cs_content.AppendLine(opt_comment);
 
-                        cs_content.AppendLine(GetComment(class_element.Description, false));
-                        foreach (string ang_Attribute in NVP_args_attributes)
-                        {
-                            cs_content.AppendLine($"{tab}{tab}{ang_Attribute}");
-                        }
-
-                        
-                        string exec = Get_NodeResult_Execute(new string[] { element_instructions });
-
-                        cs_content.AppendLine(
-                            $"{tab}{tab}public class {element_name} : {class_name}, INode" + line_sep +
-                            $"{tab}{tab}" + "{" + line_sep +
-                            $"" + $"{exec}" +
-                            $"{tab}{tab}" + "}");
-
-                        CommonData._doc.Add(
+                        var doc_info_item = CommonData._doc.Add(
                             RootNsName + "." + class_name + "." + element_name,
-                            RootNsName + "." + class_name,
+                            NVP_Folder,
                             element_name,
                             true,
                             content_type);
+                        string nvp_manifest_item = Get_ClassAttributes_NVP_Manifest(doc_info_item);
+                        cs_content.AppendLine(nvp_manifest_item);
+
+                        
+                        foreach (string ang_Attribute in NVP_args_attributes)
+                        {
+                            cs_content.AppendLine($"{tab}{ang_Attribute}");
+                        }
+                        cs_content.AppendLine(GetComment(class_element.Description, false));
+
+
+                        string exec = Get_NodeResult_Execute(new string[] { element_instructions });
+
+                        
+
+                        cs_content.AppendLine( 
+                            $"{tab}public class {element_name} : INode" + line_sep +
+                            $"{tab}" + "{" + line_sep +
+                            $"" + $"{exec}" +
+                            $"{tab}" + "}");
+
+                        
                     }
                 }
 
                 //close class
-                cs_content.AppendLine($"{tab}" + "}");
+                //cs_content.AppendLine($"{tab}" + "}");
                 //close namespace
                 cs_content.AppendLine("}");
                 File.WriteAllText(Path.Combine(save_path, $"{class_name}.cs"), cs_content.ToString(), Encoding.UTF8);
@@ -320,11 +348,11 @@ namespace AX2LIB
 
             File.WriteAllText(not_impl_save_path, not_impl.ToString(), Encoding.UTF8);
         }
-        private string GetComment(string helpstring, bool is_class)
+        private string GetComment(string helpstring, bool is_namespace)
         {
             string tabs;
-            if (is_class) tabs = tab;
-            else tabs = tab + tab;
+            if (is_namespace) tabs = "";
+            else tabs = tab;
             return line_sep + $"{tabs}///<summary>" + line_sep +
                 $"{tabs}///{helpstring}" + line_sep + 
                 $"{tabs}///</summary>";

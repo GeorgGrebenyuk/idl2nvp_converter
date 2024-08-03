@@ -54,9 +54,9 @@ namespace AX2LIB
         private string _CoderName;
         private string _SavePath;
 
-        private const string _icon_method = "❓";
-        private const string _icon_field = "❕";
-        private const string _icon_constructor = "➕";
+        //private const string _icon_method = "❓";
+        //private const string _icon_field = "❕";
+        //private const string _icon_constructor = "➕";
 
         public enum NodeViewType
         {
@@ -66,9 +66,9 @@ namespace AX2LIB
             Modifier
         }
 
-        //private XDocument _doc;
-        //private XElement _doc_nodeitem_Nodes;
-        private NVP_XML_File _doc;
+        private XDocument _doc;
+        private XElement _doc_nodeitem_Nodes;
+        //private NVP_XML_File _doc;
 
         private NVP_XML_GuidsMap _guids_map;
         private string _SavePath_GuidsMap;
@@ -79,20 +79,22 @@ namespace AX2LIB
             _CoderName = coderName;
             _SavePath = savePath;
 
-            _doc = new NVP_XML_File();
+            //_doc = new NVP_XML_File();
             //ArrayOfNodeInfo = new List<NVP_XML_NodeInfo>();
-            //_doc = new XDocument();
-            //_doc_nodeitem_Nodes = new XElement("ArrayOfNodeInfo");
+            _doc = new XDocument();
+            _doc_nodeitem_Nodes = new XElement("ArrayOfNodeInfo", 
+                new XAttribute("xsd", "http://www.w3.org/2001/XMLSchema"),
+                new XAttribute("xsi", "http://www.w3.org/2001/XMLSchema-instance"));
 
             //Идентифицируем guids map
             _SavePath_GuidsMap = savePath.Replace(".nodeitem", "_guids_map.json");
             _guids_map = NVP_XML_GuidsMap.LoadSchema(_SavePath_GuidsMap);
         }
-        public void Add(string PathExecuteClass, string Folder, string NodeName, bool NodeType, NodeViewType ViewType)
+        public NodeInfo Add(string PathExecuteClass, string Folder, string NodeName, bool NodeType, NodeViewType ViewType)
         {
             NodeInfo info = new NodeInfo();
-            string NodeType2 = "True";
-            if (NodeType == false) NodeType2 = "False";
+            string NodeType2 = "Loaded";
+            if (NodeType == false) NodeType2 = "UnLoaded";
 
             string NodeName2 = NodeName;
             //if (ViewType == NodeViewType.Data) NodeName2 = _icon_field + NodeName;
@@ -128,24 +130,26 @@ namespace AX2LIB
             info.NodeType = NodeType2;
             info.CADType = "None";
             info.ViewType = ViewType.ToString();
+            //_doc.ArrayOfNodeInfo.Add(info);
 
+            XElement el_NodeInfo = new XElement("NodeInfo");
+            el_NodeInfo.Add(new XElement("Id", info.Id));
+            el_NodeInfo.Add(new XElement("PathAssembly", info.PathAssembly));
+            el_NodeInfo.Add(new XElement("PathExecuteClass", info.PathExecuteClass));
+            el_NodeInfo.Add(new XElement("CoderName", info.CoderName));
+            el_NodeInfo.Add(new XElement("Folder", info.Folder));
+            el_NodeInfo.Add(new XElement("NodeName", info.NodeName));
+            el_NodeInfo.Add(new XElement("NodeType", info.NodeType));
+            el_NodeInfo.Add(new XElement("CADType", info.CADType));
+            el_NodeInfo.Add(new XElement("ViewType", info.ViewType));
 
-            //XElement el_NodeInfo = new XElement("NodeInfo");
-            //el_NodeInfo.Add(new XElement("Id",                  id));
-            //el_NodeInfo.Add(new XElement("PathAssembly",        _PathAssembly));
-            //el_NodeInfo.Add(new XElement("PathExecuteClass",    PathExecuteClass));
-            //el_NodeInfo.Add(new XElement("CoderName",           _CoderName));
-            //el_NodeInfo.Add(new XElement("Folder",              Folder));
-            //el_NodeInfo.Add(new XElement("NodeName",            NodeName2));
-            //el_NodeInfo.Add(new XElement("NodeType",            NodeType2));
-            //el_NodeInfo.Add(new XElement("CADType",             "None"));
-            //el_NodeInfo.Add(new XElement("ViewType",            ViewType.ToString()));
-
-            _doc.ArrayOfNodeInfo.Add(info);
-            //_doc_nodeitem_Nodes.Add(el_NodeInfo);
+            
+            _doc_nodeitem_Nodes.Add(el_NodeInfo);
+            return info;
         }
         public void Save()
         {
+            _doc.Add(_doc_nodeitem_Nodes);
             _doc.Save(_SavePath);
             _guids_map.Save(this._SavePath_GuidsMap);
             //this._doc.Save(this._SavePath);
