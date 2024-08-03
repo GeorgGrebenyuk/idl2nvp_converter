@@ -17,6 +17,7 @@ Original IDL file (COM Server) consists of Interfaces, Enums, Delegates and some
 * All `HRESULT` are considered as methods or fields (if have not any arguments), it looks as classes, of cource;
 * All other interfaces in arguments are marking as `object` type in `[NodeInput...]` attributes;
 * All enums in argument's list marking as `int`-variables, their names are in Full-namespace mode in `[NodeInput...]` attribute;
+* All enums are transformed in sub-namespaces (as interfaces) with it's content;
 * For each HRESULT and interface saving original `helpstring` data that transforming to Visual Studio's comment of class;
 * For methods that using optional arguments created a comment before class;
 * Original logic with using `ref`, `out` argumens are save, but in library you need to edit all `ref` and `out` logic.

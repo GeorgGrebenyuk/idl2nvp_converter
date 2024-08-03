@@ -33,6 +33,7 @@ namespace AX2LIB
             List<string> temp_storage_description = new List<string>();
             List<string> temp_storage_definition = new List<string>();
             List<string> temp_storage_inherits = new List<string>();
+            List<string> temp_enum_values = new List<string>();
             List<string> lib_interfaces = new List<string>();
             string temp_element_name;
             int temp_blocks_counter = 0;
@@ -74,16 +75,36 @@ namespace AX2LIB
                 //go to other sections
                 if (current_marker == IDL_AREA.IDL_LIBRARY && temp_blocks_counter > 0) current_marker = IDL_AREA.IDL_UNKNOWN;
 
-                if (current_marker != IDL_AREA.IDL_LIBRARY && IDL_string_trimmed.Contains("enum")) temp_enum_start = true;
+                //for enums
+                if (temp_enum_start && !IDL_string_trimmed.Contains("}") && IDL_string_trimmed.Contains(" "))
+                {
+                    temp_enum_values.Add(IDL_string_trimmed.Substring(0, IDL_string_trimmed.IndexOf(" ")));
+                }
+                if (current_marker != IDL_AREA.IDL_LIBRARY && IDL_string_trimmed.Contains("enum")) 
+                {
+                    temp_enum_values = new List<string>();
+                    temp_enum_start = true;
+                }
                 if (temp_enum_start && IDL_string_trimmed.Contains("}"))
                 {
                     temp_enum_start = false;
                     string enum_name = IDL_string_trimmed.Substring(IDL_string_trimmed.IndexOf("}") + 1);
-                    enum_name = enum_name.Substring(0, enum_name.IndexOf(';'));
+                    enum_name = enum_name.Substring(0, enum_name.IndexOf(';')).Replace(" ", "");
                     var enum_info = new CLASS_PROTOTYPE();
                     enum_info.Name = enum_name;
                     enum_info.TYPE = NET_DLL_PROTOTYPE.NET_TYPE.TYPE_ENUM;
                     enum_info.Description = "";
+
+                    List<COMPONENT_PROTOTYPE> enum_values = new List<COMPONENT_PROTOTYPE>();
+                    foreach (string enum_value in temp_enum_values)
+                    {
+                        COMPONENT_PROTOTYPE enum_value_1 = new COMPONENT_PROTOTYPE();
+                        enum_value_1.Name = enum_value;
+                        enum_value_1.TYPE = NET_DLL_PROTOTYPE.NET_TYPE.TYPE_ENUM;
+                        enum_value_1.ReturnedValue = COMPONENT_PROTOTYPE.ArgumentTypes.Object;
+                        enum_values.Add(enum_value_1);
+                    }
+                    enum_info.Members = enum_values;
                     NET_prototype.Enumerations.Add(enum_info);
                 }
                 
