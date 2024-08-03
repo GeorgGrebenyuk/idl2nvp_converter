@@ -51,6 +51,7 @@ namespace AX2LIB
                 $"{line_sep}{tab}{tab}NodeName = \"{info.NodeName}\", " +
                 $"{line_sep}{tab}{tab}NodeType = \"{info.NodeType}\", " +
                 $"{line_sep}{tab}{tab}CADType = \"{info.CADType}\", " +
+                $"{line_sep}{tab}{tab}Text = \"{info.Text}\", " +
                 $"{line_sep}{tab}{tab}ViewType = \"{info.ViewType}\")]";
         }
 
@@ -109,7 +110,7 @@ namespace AX2LIB
                 cs_content.AppendLine("using NVP.API.Nodes;" + line_sep);
                 //add NVP_Manifest_Creator namespace (for attributes to create manifest)
                 cs_content.AppendLine("using NVP_Manifest_Creator;");
-                //add namespace (for that IDL file and for class) and comment for it 
+                //add namespace (for that IDL file and for class) and comment for it
                 cs_content.AppendLine(GetComment(class_wrapper.Description, true));
                 cs_content.AppendLine($"namespace {RootNsName}.{class_name} {line_sep}" + "{");
                 //adding class content
@@ -123,7 +124,8 @@ namespace AX2LIB
                     NVP_Folder,
                     "_" + class_name + "_Constructor",
                     true,
-                    NVP_XML.NodeViewType.Modifier);
+                    NVP_XML.NodeViewType.Modifier,
+                    "");
                 string nvp_manifest_1 = Get_ClassAttributes_NVP_Manifest(doc_info1);
                 if (!_include_NVP_ManifestAttrs) nvp_manifest_1 = "";
 
@@ -148,7 +150,8 @@ namespace AX2LIB
                     NVP_Folder,
                     "_" + class_name + "_ConstructorCast",
                     true,
-                    NVP_XML.NodeViewType.Modifier);
+                    NVP_XML.NodeViewType.Modifier,
+                    "");
                 string nvp_manifest_2 = Get_ClassAttributes_NVP_Manifest(doc_info2);
                 if (!_include_NVP_ManifestAttrs) nvp_manifest_2 = "";
 
@@ -308,7 +311,8 @@ namespace AX2LIB
                             NVP_Folder,
                             element_name,
                             true,
-                            content_type);
+                            content_type,
+                            class_element.Description);
                         string nvp_manifest_item = Get_ClassAttributes_NVP_Manifest(doc_info_item);
                         if (!_include_NVP_ManifestAttrs) nvp_manifest_item = "";
                         cs_content.AppendLine(nvp_manifest_item);

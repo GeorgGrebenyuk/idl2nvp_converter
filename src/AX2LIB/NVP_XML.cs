@@ -22,6 +22,7 @@ namespace AX2LIB
         public string NodeType { get; set; }
         public string CADType { get; set; }
         public string ViewType { get; set; }
+        public string Text { get; set; }
     }
 
     [Serializable()]
@@ -90,7 +91,7 @@ namespace AX2LIB
             _SavePath_GuidsMap = savePath.Replace(".nodeitem", "_guids_map.json");
             _guids_map = NVP_XML_GuidsMap.LoadSchema(_SavePath_GuidsMap);
         }
-        public NodeInfo Add(string PathExecuteClass, string Folder, string NodeName, bool NodeType, NodeViewType ViewType)
+        public NodeInfo Add(string PathExecuteClass, string Folder, string NodeName, bool NodeType, NodeViewType ViewType, string help_text)
         {
             NodeInfo info = new NodeInfo();
             string NodeType2 = "Loaded";
@@ -130,6 +131,7 @@ namespace AX2LIB
             info.NodeType = NodeType2;
             info.CADType = "None";
             info.ViewType = ViewType.ToString();
+            info.Text = help_text;
             //_doc.ArrayOfNodeInfo.Add(info);
 
             XElement el_NodeInfo = new XElement("NodeInfo");
@@ -142,8 +144,8 @@ namespace AX2LIB
             el_NodeInfo.Add(new XElement("NodeType", info.NodeType));
             el_NodeInfo.Add(new XElement("CADType", info.CADType));
             el_NodeInfo.Add(new XElement("ViewType", info.ViewType));
+            el_NodeInfo.Add(new XElement("Text", info.Text));
 
-            
             _doc_nodeitem_Nodes.Add(el_NodeInfo);
             return info;
         }
