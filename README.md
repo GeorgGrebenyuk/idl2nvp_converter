@@ -15,7 +15,7 @@ Translator ActiveX library (from IDL file) to C# NET DLL for NVP (https://nvp-st
 Original IDL file (COM Server) consists of Interfaces, Enums, Delegates and some other elements. Because of in NVP using only classes, all COM-interfaces's content are transformed in class-elements.
 * For each intreface the will creating sub-namespace and two node-constructor (for casting unmanaged COM-object to class and for casting the property `_i` of each class to target object), in each of two constructors there is public field with `_i` name;
 * All `HRESULT` are considered as methods or fields (if have not any arguments), it looks as classes, of cource;
-* All other interfaces in arguments are marking as `dynamic` type in `[NodeInput...]` attributes;
+* All other interfaces in arguments are marking as `object` type in `[NodeInput...]` attributes;
 * All enums in argument's list marking as `int`-variables, their names are in Full-namespace mode in `[NodeInput...]` attribute;
 * For each HRESULT and interface saving original `helpstring` data that transforming to Visual Studio's comment of class;
 * For methods that using optional arguments created a comment before class;
