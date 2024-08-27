@@ -272,10 +272,11 @@ namespace AX2LIB
         /// <param name="name_string">IDL_ELEMENT.Name</param>
         private void ParseName(string data_string, out string Name, out List<string> Inherits)
         {
+            string data_string_original = data_string;
             Inherits = new List<string>();
             Name = null;
             //In fact,there is only one string in 'data'
-            if (data_string.Contains("library") || data_string.Contains("interface") || data_string.Contains("HRESULT"))
+            if (!data_string.Contains("helpstring") && (data_string.Contains("library") || data_string.Contains("interface") || data_string.Contains("HRESULT")))
             {
                 if (data_string.Contains("(")) data_string = data_string.Substring(0, data_string.IndexOf("("));
                 string[] arr = data_string.TrimStart().Split(" ");
@@ -294,7 +295,7 @@ namespace AX2LIB
                 }
 
             }
-            if (Name == null)
+            if (!data_string.Contains("helpstring") && Name == null)
             {
                 throw new Exception($"Can not parse string {data_string}");
             }

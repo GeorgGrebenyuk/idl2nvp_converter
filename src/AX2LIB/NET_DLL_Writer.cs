@@ -112,11 +112,12 @@ namespace AX2LIB
                     StringBuilder cs_content = new StringBuilder();
                     string class_name = class_wrapper.Name;
                     if (class_name == "") continue;
+
                     if (is_enums) class_name = "enum_" + class_wrapper.Name;
 
-                    
+                    if (class_name.Substring(0, 2) == "_I") class_name = class_name.Substring(2);
                     if (class_name[0] == 'I') class_name = class_name.Substring(1);
-                    if (class_name.Substring(0,2) == "_I") class_name = class_name.Substring(2);
+                    
 
                     //add NVP namespace
                     cs_content.AppendLine(namespaces);
@@ -199,6 +200,7 @@ namespace AX2LIB
                             {
 
                                 string class_element_name_edited = class_element.Name;
+                                
                                 if (class_element_name_edited == "Execute") class_element_name_edited = "Execute2";
 
 
@@ -344,10 +346,14 @@ namespace AX2LIB
 
                                 cs_content.AppendLine(opt_comment);
 
+                                string NVP_NodeName = class_element_name_edited;
+                                if (class_element.Name == "Execute") NVP_NodeName = NVP_NodeName.Replace("Execute2", "Execute");
+
+
                                 var doc_info_item = CommonData._doc.Add(
                                     RootNsName + "." + class_name + "." + class_element_name_edited,
                                     NVP_Folder,
-                                    class_element_name_edited,
+                                    NVP_NodeName,
                                     true,
                                     content_type,
                                     class_element.Description);
